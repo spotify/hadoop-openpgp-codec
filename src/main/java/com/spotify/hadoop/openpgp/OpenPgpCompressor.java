@@ -20,12 +20,10 @@ import org.bouncycastle.openpgp.PGPLiteralDataGenerator;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
 import org.bouncycastle.openpgp.PGPPublicKey;
 import org.bouncycastle.openpgp.PGPPublicKeyRingCollection;
-import org.bouncycastle.openpgp.PGPUtil;
 import org.bouncycastle.bcpg.CompressionAlgorithmTags;
 import org.bouncycastle.bcpg.SymmetricKeyAlgorithmTags;
 
 public class OpenPgpCompressor extends StreamCompressor {
-	public static final String PUBRING_FILE_NAME = "pubring.gpg";
 	public static final Map<String, Integer> COMPRESSION_ALGORITHMS = EnumUtils.getStaticFinalFieldMapping(CompressionAlgorithmTags.class);
 	public static final Map<String, Integer> ENCRYPTION_ALGORITHMS = EnumUtils.getStaticFinalFieldMapping(SymmetricKeyAlgorithmTags.class);
 
@@ -38,7 +36,7 @@ public class OpenPgpCompressor extends StreamCompressor {
 			out,
 			getPublicKey(),
 			getEncryptionAlgorithm(),
-			wantsSignature(),
+			wantsIntegrity(),
 			getCompressionAlgorithm(),
 			getFormat(),
 			"",
@@ -54,7 +52,7 @@ public class OpenPgpCompressor extends StreamCompressor {
 					encryption,
 					signed,
 					new SecureRandom(),
-					(String) null);
+					"BC");
 
 				edg.addMethod(key);
 				out = edg.open(out, bufferSize);
@@ -88,12 +86,7 @@ public class OpenPgpCompressor extends StreamCompressor {
 		if (path != null)
 			return new File(path);
 
-		path = System.getenv("GNUPGHOME");
-
-		if (path != null)
-			return new File(path, PUBRING_FILE_NAME);
-
-		return new File(System.getProperty("user.home") + File.separator + ".gnupg", PUBRING_FILE_NAME);
+		return GnuPgPublicKeyRingCollection.getDefaultPubringFile();
 	}
 
 	private String getPublicKeyId() {
@@ -108,34 +101,9 @@ public class OpenPgpCompressor extends StreamCompressor {
 		if (id == null) return null;
 
 		try {
-			FileInputStream in = new FileInputStream(getPubringFile());
+			PGPPublicKeyRingCollection col = GnuPgUtils.createPublicKeyRingCollection(getPubringFile());
 
-			try {
-				PGPPublicKeyRingCollection col = new PGPPublicKeyRingCollection(PGPUtil.getDecoderStream(in));
-
-				long lid = Long.parseLong(id, 0x10);
-				long mask = (1L << (4 * id.length())) - 1;
-
-				for (Iterator<PGPPublicKeyRing> rit = col.getKeyRings(); rit.hasNext();) {
-					for (Iterator<PGPPublicKey> kit = rit.next().getPublicKeys(); kit.hasNext();) {
-						PGPPublicKey key = kit.next();
-
-						if ((key.getKeyID() & mask) == lid) {
-							if (!key.isEncryptionKey())
-								throw new IncompatibleKeyException("not an encryption key: " + id);
-
-							if (key.isRevoked())
-								throw new IncompatibleKeyException("key is revoked: " + id);
-
-							return key;
-						}
-					}
-				}
-
-				throw new KeyNotFoundException("key not found: " + id);
-			} finally {
-				in.close();
-			}
+			return GnuPgUtils.getPublicKey(col, id);
 		} catch (Exception ex) {
 			throw new KeyNotFoundException(ex);
 		}
@@ -163,8 +131,8 @@ public class OpenPgpCompressor extends StreamCompressor {
 		return ENCRYPTION_ALGORITHMS.get(algo.toUpperCase());
 	}
 
-	private boolean wantsSignature() {
-		return getConf().getBoolean("spotify.hadoop.openpgp.signed", true);
+	private boolean wantsIntegrity() {
+		return getConf().getBoolean("spotify.hadoop.openpgp.integrity.sign", true);
 	}
 
 	private int getBufferSize() {

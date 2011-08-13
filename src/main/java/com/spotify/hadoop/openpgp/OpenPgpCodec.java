@@ -18,14 +18,14 @@ public class OpenPgpCodec extends AbstractCompressionCodec {
 	}
 
 	public Class<? extends Decompressor> getDecompressorType() {
-		return null; //OpenPgpDecompressor.class;
+		return OpenPgpDecompressor.class;
 	}
 
 	public Decompressor createDecompressor() {
-		return null; //new OpenPgpDecompressor(getConf());
+		return new OpenPgpDecompressor(getConf());
 	}
 
 	public String getDefaultExtension() {
-		return ".pgp";
+		return ".gpg";
 	}
 }

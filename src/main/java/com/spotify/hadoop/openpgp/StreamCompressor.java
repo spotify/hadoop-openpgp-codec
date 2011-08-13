@@ -184,6 +184,7 @@ public abstract class StreamCompressor implements Compressor {
 				bufferBytes = newBytes;
 			}
 
+			// bufferOff == 0 here
 			bufferBytes[bufferLen++] = (byte) b;
 		}
 	}
