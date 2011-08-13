@@ -1,0 +1,38 @@
+<project>
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>com.spotify.hadoop-openpgp-codec</groupId>
+	<artifactId>hadoop-openpgp-codec</artifactId>
+	<version>1</version>
+
+	<dependencies>
+		<dependency>
+			<groupId>org.apache.hadoop</groupId>
+			<artifactId>hadoop-core</artifactId>
+			<version>0.20.203.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcpg-jdk16</artifactId>
+			<version>1.46</version>
+		</dependency>
+		<dependency>
+			<groupId>org.testng</groupId>
+			<artifactId>testng</artifactId>
+			<version>6.1.1</version>
+		</dependency>
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>2.3.2</version>
+				<configuration>
+					<source>1.5</source>
+					<target>1.5</target>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+</project>
