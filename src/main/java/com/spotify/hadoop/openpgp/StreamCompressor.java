@@ -33,6 +33,7 @@ public abstract class StreamCompressor implements Compressor {
 	private int numBytesRead;
 	private int numBytesWritten;
 	private boolean hasFinished;
+	private boolean streamClosed;
 
 	public StreamCompressor(Configuration conf) throws IOException {
 		reinit(conf);
@@ -66,7 +67,7 @@ public abstract class StreamCompressor implements Compressor {
 	}
 
 	public boolean finished() {
-		return hasFinished && bufferLen == 0 && inputLen == 0;
+		return hasFinished && bufferLen == 0 && inputLen == 0 && streamClosed;
 	}
 
 	public int compress(byte[] b, int off, int len) throws IOException {
@@ -87,7 +88,12 @@ public abstract class StreamCompressor implements Compressor {
 		stream.write(inputBytes, inputOff, inputLen);
 		numBytesRead += inputLen;
 		inputLen = 0;
-		if (hasFinished) stream.flush();
+
+		if (hasFinished) {
+			streamClosed = true;
+			stream.close();
+		}
+
 		outputBytes = null;
 		numBytesWritten += n + len - outputLen;
 
@@ -105,7 +111,10 @@ public abstract class StreamCompressor implements Compressor {
 
 	public void end() {
 		try {
-			stream.close();
+			if (!streamClosed) {
+				streamClosed = true;
+				stream.close();
+			}
 		} catch (IOException ex) {
 		}
 	}
@@ -126,7 +135,7 @@ public abstract class StreamCompressor implements Compressor {
 		}
 
 		public void write(byte[] b, int off, int len) throws IOException {
-			if (outputBytes != null && outputLen > 0) {
+			if (bufferLen == 0 && outputBytes != null && outputLen > 0) {
 				// We're in a compress() call and can write directly to output.
 				int n = min(len, outputLen);
 
@@ -145,7 +154,7 @@ public abstract class StreamCompressor implements Compressor {
 				bufferOff = 0;
 			}
 
-			if (bufferLen == bufferBytes.length) {
+			if (bufferLen + len > bufferBytes.length) {
 				// Allocate larger buffer.
 				int n = bufferBytes.length * 2;
 
@@ -158,12 +167,12 @@ public abstract class StreamCompressor implements Compressor {
 				bufferBytes = newBytes;
 			}
 
-			System.arraycopy(b, off, bufferBytes, 0, len);
+			System.arraycopy(b, off, bufferBytes, bufferLen, len);
 			bufferLen += len;
 		}
 
 		public void write(int b) throws IOException {
-			if (outputBytes != null && outputLen > 0) {
+			if (bufferLen == 0 && outputBytes != null && outputLen > 0) {
 				// We're in a compress() call and can write directly to output.
 				outputBytes[outputOff++] = (byte) b;
 				--outputLen;
