@@ -25,11 +25,11 @@ public class OpenPgpCompressor extends StreamCompressor {
 	public static final Map<String, Integer> COMPRESSION_ALGORITHMS = EnumUtils.getStaticFinalFieldMapping(CompressionAlgorithmTags.class);
 	public static final Map<String, Integer> ENCRYPTION_ALGORITHMS = EnumUtils.getStaticFinalFieldMapping(SymmetricKeyAlgorithmTags.class);
 
-	public OpenPgpCompressor(Configuration conf) {
+	public OpenPgpCompressor(Configuration conf) throws IOException {
 		super(conf);
 	}
 
-	protected OutputStream createOutputStream(OutputStream out) {
+	protected OutputStream createOutputStream(OutputStream out) throws IOException {
 		return createOutputStream(
 			out,
 			getKey(),
@@ -43,7 +43,7 @@ public class OpenPgpCompressor extends StreamCompressor {
 	}
 
 	// Default protection, for unit tests.
-	static OutputStream createOutputStream(OutputStream out, Object key, int encryption, boolean signed, int compression, int format, String name, Date mtime, int bufferSize) {
+	static OutputStream createOutputStream(OutputStream out, Object key, int encryption, boolean signed, int compression, int format, String name, Date mtime, int bufferSize) throws IOException {
 		try {
 			if (encryption != PGPEncryptedDataGenerator.NULL || signed) {
 				PGPEncryptedDataGenerator edg = new PGPEncryptedDataGenerator(
@@ -54,8 +54,10 @@ public class OpenPgpCompressor extends StreamCompressor {
 
 				if (key instanceof PGPPublicKey)
 					edg.addMethod((PGPPublicKey) key);
-				else
+				else if (key instanceof String)
 					edg.addMethod(((String) key).toCharArray());
+				else
+					throw new IOException("Encryption was requested but not key was specified");
 
 				out = edg.open(out, bufferSize);
 			}
