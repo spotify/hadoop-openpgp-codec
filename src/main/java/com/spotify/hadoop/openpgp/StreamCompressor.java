@@ -34,9 +34,9 @@ public abstract class StreamCompressor implements Compressor {
 	private int numBytesWritten;
 	private boolean hasFinished;
 
-	public StreamCompressor(Configuration conf) {
-		this.stream = createOutputStream(new SelfOutputStream());
+	public StreamCompressor(Configuration conf) throws IOException {
 		reinit(conf);
+		this.stream = createOutputStream(new SelfOutputStream());
 	}
 
 	public void setInput(byte[] b, int off, int len) {
@@ -114,7 +114,7 @@ public abstract class StreamCompressor implements Compressor {
 		return conf;
 	}
 
-	protected abstract OutputStream createOutputStream(OutputStream out);
+	protected abstract OutputStream createOutputStream(OutputStream out) throws IOException;
 
 	private class SelfOutputStream extends OutputStream {
 		public void close() throws IOException {

@@ -8,7 +8,7 @@ import static org.testng.AssertJUnit.*;
 
 public class StreamCompressorTest {
 	@Test
-	public void create() {
+	public void create() throws Exception {
 		StreamCompressor c = createIdentity();
 
 		assert c.needsInput();
@@ -95,7 +95,7 @@ public class StreamCompressorTest {
 		c.end();
 	}
 
-	StreamCompressor createIdentity() {
+	StreamCompressor createIdentity() throws Exception {
 		return new StreamCompressor(null) {
 			protected OutputStream createOutputStream(OutputStream out) {
 				return out;
