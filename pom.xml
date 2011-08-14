@@ -2,7 +2,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.spotify.hadoop-openpgp-codec</groupId>
 	<artifactId>hadoop-openpgp-codec</artifactId>
-	<version>1</version>
+	<version>1.0</version>
 
 	<dependencies>
 		<dependency>
@@ -19,6 +19,7 @@
 			<groupId>org.testng</groupId>
 			<artifactId>testng</artifactId>
 			<version>6.1.1</version>
+			<scope>test</scope>
 		</dependency>
 	</dependencies>
 
@@ -32,6 +33,23 @@
 					<source>1.5</source>
 					<target>1.5</target>
 				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-dependency-plugin</artifactId>
+				<configuration>
+					<outputDirectory>${project.build.directory}/lib/</outputDirectory>
+					<includeScope>runtime</includeScope>
+				</configuration>
+				<executions>
+					<execution>
+						<id>package-deps</id>
+						<phase>package</phase>
+						<goals>
+							<goal>copy-dependencies</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>
