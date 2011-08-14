@@ -16,6 +16,10 @@ import org.apache.hadoop.io.compress.DecompressorStream;
 public abstract class AbstractCompressionCodec implements CompressionCodec, Configurable {
 	private Configuration conf;
 
+	public AbstractCompressionCodec() {
+		conf = new Configuration(false);
+	}
+
 	public CompressionOutputStream createOutputStream(OutputStream out) throws IOException {
 		return createOutputStream(out, createCompressor());
 	}
