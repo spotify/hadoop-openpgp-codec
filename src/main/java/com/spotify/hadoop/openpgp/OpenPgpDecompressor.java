@@ -21,6 +21,7 @@ import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPLiteralData;
 import org.bouncycastle.openpgp.PGPObjectFactory;
 import org.bouncycastle.openpgp.PGPPrivateKey;
+import org.bouncycastle.openpgp.PGPPBEEncryptedData;
 import org.bouncycastle.openpgp.PGPPublicKeyEncryptedData;
 import org.bouncycastle.openpgp.PGPSecretKeyRingCollection;
 
@@ -33,16 +34,17 @@ public class OpenPgpDecompressor extends StreamDecompressor {
 		return createInputStream(
 			in,
 			wantsIntegrityVerification(),
-			new DefaultPrivateKeyFactory());
+			new DefaultPrivateKeyFactory(),
+			getDecryptionPassPhrase());
 	}
 
 	// Default protection, for unit tests.
-	static InputStream createInputStream(InputStream in, boolean verifySign, PrivateKeyFactory keyFactory) throws IOException {
+	static InputStream createInputStream(InputStream in, boolean verifySign, PrivateKeyFactory keyFactory, String passPhrase) throws IOException {
 		if (verifySign)
 			throw new UnsupportedOperationException("Message integrity validation not yet implemented.");
 
 		try {
-			InputStream ret = getFirstLiteralDataInputStream(in, verifySign, keyFactory);
+			InputStream ret = getFirstLiteralDataInputStream(in, verifySign, keyFactory, passPhrase);
 
 			if (ret == null) throw new IOException("No OpenPGP literal data found");
 
@@ -71,6 +73,11 @@ public class OpenPgpDecompressor extends StreamDecompressor {
 		return getConf().get("spotify.hadoop.openpgp.decrypt.keyPassPhrase", "");
 	}
 
+	private String getDecryptionPassPhrase() {
+		return getConf().get("spotify.hadoop.openpgp.decrypt.passPhrase",
+			getConf().get("spotify.hadoop.openpgp.encrypt.passPhrase", ""));
+	}
+
 	private PGPPrivateKey getPrivateKey(long id) {
 		try {
 			PGPSecretKeyRingCollection col = GnuPgUtils.createSecretKeyRingCollection(getSecringFile());
@@ -81,7 +88,7 @@ public class OpenPgpDecompressor extends StreamDecompressor {
 		}
 	}
 
-	private static InputStream getFirstLiteralDataInputStream(InputStream in, boolean verifySign, PrivateKeyFactory keyFactory) throws IOException, PGPException, NoSuchProviderException {
+	private static InputStream getFirstLiteralDataInputStream(InputStream in, boolean verifySign, PrivateKeyFactory keyFactory, String passPhrase) throws IOException, PGPException, NoSuchProviderException {
 		PGPObjectFactory pof = new PGPObjectFactory(in);
 
 		Object po;
@@ -92,7 +99,7 @@ public class OpenPgpDecompressor extends StreamDecompressor {
 			if (po == null) {
 				break;
 			} else if (po instanceof PGPCompressedData) {
-				InputStream ret = getFirstLiteralDataInputStream(((PGPCompressedData) po).getDataStream(), verifySign, keyFactory);
+				InputStream ret = getFirstLiteralDataInputStream(((PGPCompressedData) po).getDataStream(), verifySign, keyFactory, passPhrase);
 
 				if (ret != null) return ret;
 			} else if (po instanceof PGPLiteralData) {
@@ -104,14 +111,20 @@ public class OpenPgpDecompressor extends StreamDecompressor {
 					if (ped instanceof PGPPublicKeyEncryptedData) {
 						PGPPublicKeyEncryptedData pked = (PGPPublicKeyEncryptedData) ped;
 
-						InputStream ret = getFirstLiteralDataInputStream(pked.getDataStream(keyFactory.getPrivateKey(pked.getKeyID()), "BC"), verifySign, keyFactory);
+						InputStream ret = getFirstLiteralDataInputStream(pked.getDataStream(keyFactory.getPrivateKey(pked.getKeyID()), "BC"), verifySign, keyFactory, passPhrase);
 
 						if (ret != null) return ret;
 						// TODO: To verify integrity,
 						//       we need to keep the
 						//       pked reference.
+					} else if (ped instanceof PGPPBEEncryptedData) {
+						PGPPBEEncryptedData pped = (PGPPBEEncryptedData) ped;
+
+						InputStream ret = getFirstLiteralDataInputStream(pped.getDataStream(passPhrase.toCharArray(), "BC"), verifySign, keyFactory, passPhrase);
+
+						if (ret != null) return ret;
 					} else {
-						// TODO: Not sure what this is.
+						throw new IOException("Unknown encryption packet");
 					}
 				}
 			} else {

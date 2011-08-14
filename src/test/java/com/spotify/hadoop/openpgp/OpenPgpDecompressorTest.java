@@ -29,11 +29,36 @@ public class OpenPgpDecompressorTest {
 				public PGPPrivateKey getPrivateKey(long id) {
 					return OpenPgpDecompressorTest.this.getPrivateKey(id);
 				}
-			});
+			},
+			null);
 
 		byte[] buffer = new byte[1024];
 		int n = din.read(buffer);
 		String data = new String(buffer, 0, n, "UTF-8");
+
+		assertEquals("Hello world!\n", data);
+	}
+
+	@Test
+	public void createInputStreamSymmetrical() throws Exception {
+		InputStream fin = ClassLoader.getSystemResourceAsStream("hello.txt-sym.gpg");
+		InputStream din = OpenPgpDecompressor.createInputStream(
+			fin,
+			false,
+			null,
+			"42");
+
+		String data = "";
+
+		for (;;) {
+			byte[] buffer = new byte[1024];
+			int n = din.read(buffer);
+
+			if (n >= 0)
+				data += new String(buffer, 0, n, "UTF-8");
+			else
+				break;
+		}
 
 		assertEquals("Hello world!\n", data);
 	}
