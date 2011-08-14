@@ -13,11 +13,9 @@ import java.security.SecureRandom;
 
 import org.apache.hadoop.conf.Configuration;
 
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openpgp.PGPCompressedDataGenerator;
 import org.bouncycastle.openpgp.PGPEncryptedDataGenerator;
 import org.bouncycastle.openpgp.PGPLiteralDataGenerator;
-import org.bouncycastle.openpgp.PGPPublicKeyRing;
 import org.bouncycastle.openpgp.PGPPublicKey;
 import org.bouncycastle.openpgp.PGPPublicKeyRingCollection;
 import org.bouncycastle.bcpg.CompressionAlgorithmTags;
@@ -86,11 +84,11 @@ public class OpenPgpCompressor extends StreamCompressor {
 		if (path != null)
 			return new File(path);
 
-		return GnuPgPublicKeyRingCollection.getDefaultPubringFile();
+		return GnuPgUtils.getDefaultPubringFile();
 	}
 
 	private String getPublicKeyId() {
-		return getConf().get("spotify.hadoop.openpgp.pubkey");
+		return getConf().get("spotify.hadoop.openpgp.key.encrypt");
 	}
 
 	private PGPPublicKey getPublicKey() {
