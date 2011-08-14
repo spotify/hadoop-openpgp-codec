@@ -14,7 +14,11 @@ public class OpenPgpCodec extends AbstractCompressionCodec {
 	}
 
 	public Compressor createCompressor() {
-		return new OpenPgpCompressor(getConf());
+		try {
+			return new OpenPgpCompressor(getConf());
+		} catch (IOException ex) {
+			throw new RuntimeException(ex);
+		}
 	}
 
 	public Class<? extends Decompressor> getDecompressorType() {
