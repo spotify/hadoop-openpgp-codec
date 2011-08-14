@@ -142,13 +142,29 @@ public class OpenPgpCompressor extends StreamCompressor {
 	}
 
 	private int getEncryptionAlgorithm() {
-		String algo = getConf().get("spotify.hadoop.openpgp.encryption", "null");
+		String algo = getConf().get("spotify.hadoop.openpgp.encryption");
+
+		if (algo == null) {
+			if (getPublicKey() != null || getEncryptionPassPhrase() != null)
+				algo = "cast5";
+			else
+				algo = "null";
+		}
 
 		return ENCRYPTION_ALGORITHMS.get(algo.toUpperCase());
 	}
 
 	private boolean wantsIntegrity() {
-		return getConf().getBoolean("spotify.hadoop.openpgp.integrity.sign", true);
+		String b = getConf().get("spotify.hadoop.openpgp.integrity.sign");
+
+		if (b == null) {
+			if (getPublicKey() != null || getEncryptionPassPhrase() != null)
+				b = "true";
+			else
+				b = "false";
+		}
+
+		return Boolean.valueOf(b);
 	}
 
 	private int getBufferSize() {
