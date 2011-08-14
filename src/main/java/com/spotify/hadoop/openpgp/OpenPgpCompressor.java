@@ -32,7 +32,7 @@ public class OpenPgpCompressor extends StreamCompressor {
 	protected OutputStream createOutputStream(OutputStream out) {
 		return createOutputStream(
 			out,
-			getPublicKey(),
+			getKey(),
 			getEncryptionAlgorithm(),
 			wantsIntegrity(),
 			getCompressionAlgorithm(),
@@ -43,7 +43,7 @@ public class OpenPgpCompressor extends StreamCompressor {
 	}
 
 	// Default protection, for unit tests.
-	static OutputStream createOutputStream(OutputStream out, PGPPublicKey key, int encryption, boolean signed, int compression, int format, String name, Date mtime, int bufferSize) {
+	static OutputStream createOutputStream(OutputStream out, Object key, int encryption, boolean signed, int compression, int format, String name, Date mtime, int bufferSize) {
 		try {
 			if (encryption != PGPEncryptedDataGenerator.NULL || signed) {
 				PGPEncryptedDataGenerator edg = new PGPEncryptedDataGenerator(
@@ -52,7 +52,11 @@ public class OpenPgpCompressor extends StreamCompressor {
 					new SecureRandom(),
 					"BC");
 
-				edg.addMethod(key);
+				if (key instanceof PGPPublicKey)
+					edg.addMethod((PGPPublicKey) key);
+				else
+					edg.addMethod(((String) key).toCharArray());
+
 				out = edg.open(out, bufferSize);
 			}
 
@@ -87,8 +91,20 @@ public class OpenPgpCompressor extends StreamCompressor {
 		return GnuPgUtils.getDefaultPubringFile();
 	}
 
+	private Object getKey() {
+		PGPPublicKey pubKey = getPublicKey();
+
+		if (pubKey != null) return pubKey;
+
+		return getEncryptionPassPhrase();
+	}
+
+	private String getEncryptionPassPhrase() {
+		return getConf().get("spotify.hadoop.openpgp.encrypt.passPhrase");
+	}
+
 	private String getPublicKeyId() {
-		return getConf().get("spotify.hadoop.openpgp.key.encrypt");
+		return getConf().get("spotify.hadoop.openpgp.encrypt.keyId");
 	}
 
 	private PGPPublicKey getPublicKey() {

@@ -68,7 +68,7 @@ public class OpenPgpDecompressor extends StreamDecompressor {
 	}
 
 	private String getSecretKeyPassPhrase() {
-		return getConf().get("spotify.hadoop.openpgp.secring.passPhrase", "");
+		return getConf().get("spotify.hadoop.openpgp.decrypt.keyPassPhrase", "");
 	}
 
 	private PGPPrivateKey getPrivateKey(long id) {
