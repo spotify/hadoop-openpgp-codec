@@ -4,16 +4,21 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Iterator;
+import java.security.NoSuchProviderException;
 
 import org.bouncycastle.openpgp.PGPException;
+import org.bouncycastle.openpgp.PGPPrivateKey;
 import org.bouncycastle.openpgp.PGPPublicKey;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
 import org.bouncycastle.openpgp.PGPPublicKeyRingCollection;
+import org.bouncycastle.openpgp.PGPSecretKey;
+import org.bouncycastle.openpgp.PGPSecretKeyRingCollection;
 import org.bouncycastle.openpgp.PGPUtil;
 
 
 public class GnuPgUtils {
 	public static final String PUBRING_FILE_NAME = "pubring.gpg";
+	public static final String SECRING_FILE_NAME = "secring.gpg";
 
 	public static PGPPublicKeyRingCollection createPublicKeyRingCollection() throws IOException, PGPException {
 		return createPublicKeyRingCollection(getDefaultPubringFile());
@@ -61,5 +66,37 @@ public class GnuPgUtils {
 		}
 
 		throw new KeyNotFoundException("key not found: " + id);
+	}
+
+	public static PGPSecretKeyRingCollection createSecretKeyRingCollection() throws IOException, PGPException {
+		return createSecretKeyRingCollection(getDefaultSecringFile());
+	}
+
+	public static PGPSecretKeyRingCollection createSecretKeyRingCollection(File secring) throws IOException, PGPException {
+		FileInputStream in = new FileInputStream(secring);
+
+		try {
+			return new PGPSecretKeyRingCollection(PGPUtil.getDecoderStream(in));
+		} finally {
+			in.close();
+		}
+	}
+
+	public static File getDefaultSecringFile() {
+		String path = System.getenv("GNUPGHOME");
+
+		if (path != null)
+			return new File(path, SECRING_FILE_NAME);
+
+		return new File(System.getProperty("user.home") + File.separator + ".gnupg", SECRING_FILE_NAME);
+	}
+
+	public static PGPPrivateKey getPrivateKey(PGPSecretKeyRingCollection col, long id, String passPhrase) throws KeyNotFoundException, PGPException, NoSuchProviderException {
+		PGPSecretKey key = col.getSecretKey(id);
+
+		if (key == null)
+			throw new KeyNotFoundException("key not found");
+
+		return key.extractPrivateKey(passPhrase.toCharArray(), "BC");
 	}
 }
