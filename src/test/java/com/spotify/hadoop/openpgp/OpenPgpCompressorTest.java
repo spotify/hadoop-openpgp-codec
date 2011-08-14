@@ -2,6 +2,7 @@ package com.spotify.hadoop.openpgp;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.OutputStream;
 
 import org.testng.annotations.*;
@@ -9,6 +10,7 @@ import static org.testng.AssertJUnit.*;
 
 import org.bouncycastle.openpgp.PGPCompressedData;
 import org.bouncycastle.openpgp.PGPEncryptedData;
+import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPLiteralData;
 import org.bouncycastle.openpgp.PGPPublicKey;
 import org.bouncycastle.openpgp.PGPPublicKeyRingCollection;
@@ -53,8 +55,10 @@ public class OpenPgpCompressorTest {
 			PGPPublicKeyRingCollection col = GnuPgUtils.createPublicKeyRingCollection(new File("etc", GnuPgUtils.PUBRING_FILE_NAME));
 
 			return GnuPgUtils.getPublicKey(col, "75FAD0E0");
-		} catch (Exception ex) {
-			throw new KeyNotFoundException(ex);
+		} catch (IOException ex) {
+			throw new RuntimeException(ex);
+		} catch (PGPException ex) {
+			throw new RuntimeException(ex);
 		}
 	}
 }
