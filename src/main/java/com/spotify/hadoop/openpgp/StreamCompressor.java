@@ -157,6 +157,7 @@ public abstract class StreamCompressor implements Compressor {
 				stream.close();
 			}
 		} catch (IOException ex) {
+			throw new RuntimeException(ex);
 		}
 	}
 
