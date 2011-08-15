@@ -26,7 +26,7 @@ public abstract class StreamCompressor implements Compressor {
 	private int outputOff;
 	private int outputLen;
 
-	private byte[] bufferBytes = new byte[1024];
+	private byte[] bufferBytes;
 	private int bufferOff;
 	private int bufferLen;
 
@@ -36,7 +36,12 @@ public abstract class StreamCompressor implements Compressor {
 	private boolean streamClosed;
 
 	public StreamCompressor(Configuration conf) throws IOException {
+		this(conf, conf.getInt("spotify.hadoop.openpgp.streamCompressor.initialBufferSize", 1024));
+	}
+
+	public StreamCompressor(Configuration conf, int initialBufferSize) throws IOException {
 		reinit(conf);
+		bufferBytes = new byte[initialBufferSize];
 		this.stream = createOutputStream(new SelfOutputStream());
 	}
 

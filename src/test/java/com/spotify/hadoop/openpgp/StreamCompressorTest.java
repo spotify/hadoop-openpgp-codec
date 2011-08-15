@@ -3,6 +3,7 @@ package com.spotify.hadoop.openpgp;
 import java.io.IOException;
 import java.io.OutputStream;
 
+import org.apache.hadoop.conf.Configuration;
 import org.testng.annotations.*;
 import static org.testng.AssertJUnit.*;
 
@@ -120,7 +121,7 @@ public class StreamCompressorTest {
 	}
 
 	StreamCompressor createIdentity() throws Exception {
-		return new StreamCompressor(null) {
+		return new StreamCompressor(new Configuration(false)) {
 			protected OutputStream createOutputStream(OutputStream out) {
 				return out;
 			}
@@ -128,7 +129,7 @@ public class StreamCompressorTest {
 	}
 
 	StreamCompressor createHeaded() throws Exception {
-		return new StreamCompressor(null) {
+		return new StreamCompressor(new Configuration(false)) {
 			protected OutputStream createOutputStream(OutputStream out) throws IOException {
 				out.write(HEADER_BYTES, 0, 3);
 				out.write(HEADER_BYTES[3]);
