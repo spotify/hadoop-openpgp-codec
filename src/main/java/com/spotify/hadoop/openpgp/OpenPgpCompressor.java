@@ -5,9 +5,11 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.security.SecureRandom;
 
@@ -101,6 +103,10 @@ public class OpenPgpCompressor extends StreamCompressor {
 	**/
 	static OutputStream createOutputStream(OutputStream out, Object key, int encryption, boolean signed, int compression, int format, String name, Date mtime, int bufferSize) throws IOException {
 		try {
+			List<OutputStream> streams = new ArrayList<OutputStream>();
+
+			streams.add(out);
+
 			if (encryption != PGPEncryptedDataGenerator.NULL || signed) {
 				PGPEncryptedDataGenerator edg = new PGPEncryptedDataGenerator(
 					encryption,
@@ -115,7 +121,8 @@ public class OpenPgpCompressor extends StreamCompressor {
 				else
 					throw new IOException("Encryption was requested but not key was specified");
 
-				out = edg.open(out, bufferSize);
+				out = edg.open(out, new byte[bufferSize]);
+				streams.add(out);
 			}
 
 			if (compression != PGPCompressedDataGenerator.UNCOMPRESSED) {
@@ -123,6 +130,7 @@ public class OpenPgpCompressor extends StreamCompressor {
 					compression);
 
 				out = cdg.open(out);
+				streams.add(out);
 			}
 
 			PGPLiteralDataGenerator ldg = new PGPLiteralDataGenerator();
@@ -134,7 +142,9 @@ public class OpenPgpCompressor extends StreamCompressor {
 				mtime,
 				new byte[bufferSize]);
 
-			return out;
+			streams.add(out);
+
+			return new MultipleClosingOutputStream(streams);
 		} catch (Exception ex) {
 			throw new RuntimeException(ex);
 		}
