@@ -110,6 +110,7 @@ public abstract class StreamCompressor implements Compressor {
 		bufferOff += n;
 		len -= n;
 		off += n;
+		numBytesWritten += n;
 
 		if (len == 0 || streamClosed) return n;
 
@@ -134,7 +135,7 @@ public abstract class StreamCompressor implements Compressor {
 
 		// Clear variable so we don't write spontaneously.
 		outputBytes = null;
-		numBytesWritten += n + len - outputLen;
+		numBytesWritten += len - outputLen;
 
 		return n + len - outputLen;
 	}
