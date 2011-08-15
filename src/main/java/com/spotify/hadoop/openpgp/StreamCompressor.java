@@ -13,6 +13,15 @@ import org.apache.hadoop.io.compress.Compressor;
  * This class is abstract, and you have to override the createOutputStream()
  * function. Use the supplied OutputStream as the final output of the stream
  * chain.
+ *
+ * Configuration entries used:
+ *
+ *  * spotify.hadoop.openpgp.streamCompressor.initialBufferSize
+ *
+ * An infinite buffer is used to store things that are written by the stream
+ * chain. It is hopefully bounded by the finite things given to setInput(). If
+ * we were to use a blocking SelfOutputStream#write(), we would have to spawn
+ * a new thread to drive that.
 **/
 public abstract class StreamCompressor implements Compressor {
 	private OutputStream stream;
@@ -35,10 +44,27 @@ public abstract class StreamCompressor implements Compressor {
 	private boolean hasFinished;
 	private boolean streamClosed;
 
+	/**
+	 * Construct a new stream compressor.
+	 *
+	 * This will call the createOutputStream() function to construct a
+	 * stream.
+	 *
+	 * The initial buffer size is read from configuration entry
+	 * spotify.hadoop.openpgp.streamCompressor.initialBufferSize.
+	**/
 	public StreamCompressor(Configuration conf) throws IOException {
 		this(conf, conf.getInt("spotify.hadoop.openpgp.streamCompressor.initialBufferSize", 1024));
 	}
 
+	/**
+	 * Construct a new stream compressor.
+	 *
+	 * This will call the createOutputStream() function to construct a
+	 * stream.
+	 *
+	 * @param initialBufferSize the initial size of the buffer, enlarged as needed.
+	**/
 	public StreamCompressor(Configuration conf, int initialBufferSize) throws IOException {
 		reinit(conf);
 		bufferBytes = new byte[initialBufferSize];
@@ -78,14 +104,19 @@ public abstract class StreamCompressor implements Compressor {
 	public int compress(byte[] b, int off, int len) throws IOException {
 		int n = min(len, bufferLen);
 
+		// Try to draw as much as possible from the buffer.
 		System.arraycopy(bufferBytes, bufferOff, b, off, n);
 		bufferLen -= n;
 		bufferOff += n;
 		len -= n;
 		off += n;
 
-		if (len == 0) return n;
+		if (len == 0 || streamClosed) return n;
 
+		// bufferLen == 0 at this point.
+
+		// Set up output buffer so that stream.write() can write
+		// directly there.
 		outputBytes = b;
 		outputOff = off;
 		outputLen = len;
@@ -94,11 +125,14 @@ public abstract class StreamCompressor implements Compressor {
 		numBytesRead += inputLen;
 		inputLen = 0;
 
+		// If the user has called finish(), we don't expect more
+		// data. Close the stream to force it to finish writing.
 		if (hasFinished) {
 			streamClosed = true;
 			stream.close();
 		}
 
+		// Clear variable so we don't write spontaneously.
 		outputBytes = null;
 		numBytesWritten += n + len - outputLen;
 
@@ -108,6 +142,8 @@ public abstract class StreamCompressor implements Compressor {
 	public void reinit(Configuration conf) {
 		this.conf = conf;
 		inputLen = 0;
+		bufferLen = 0;
+		outputBytes = null;
 	}
 
 	public void reset() {
@@ -128,10 +164,21 @@ public abstract class StreamCompressor implements Compressor {
 		return conf;
 	}
 
+	/**
+	 * Abstract method to create the output stream chain.
+	 *
+	 * This is the only function you have to override. The given
+	 * stream is suitable for writing to directly, but is not guaranteed
+	 * to be thread-safe.
+	**/
 	protected abstract OutputStream createOutputStream(OutputStream out) throws IOException;
 
+	/**
+	 * An output stream writing to outputBytes, falling back to bufferBytes.
+	**/
 	private class SelfOutputStream extends OutputStream {
 		public void close() throws IOException {
+			// If the stream is closed, we don't expect more bytes to come.
 			finish();
 		}
 
@@ -169,6 +216,8 @@ public abstract class StreamCompressor implements Compressor {
 				System.arraycopy(bufferBytes, bufferOff, bufferBytes, 0, bufferLen);
 			}
 
+			// Write to buffer. Always write at bufferOff since
+			// we don't have a ring buffer.
 			bufferOff = 0;
 			System.arraycopy(b, off, bufferBytes, bufferLen, len);
 			bufferLen += len;
@@ -193,6 +242,8 @@ public abstract class StreamCompressor implements Compressor {
 				System.arraycopy(bufferBytes, bufferOff, bufferBytes, 0, bufferLen);
 			}
 
+			// Write to buffer. Always write at bufferOff since
+			// we don't have a ring buffer.
 			bufferOff = 0;
 			bufferBytes[bufferLen++] = (byte) b;
 		}
