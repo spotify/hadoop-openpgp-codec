@@ -148,12 +148,6 @@ public abstract class StreamCompressor implements Compressor {
 				if (len == 0) return;
 			}
 
-			if (bufferOff > 0) {
-				// Shift buffer to beginning.
-				System.arraycopy(bufferBytes, bufferOff, bufferBytes, 0, bufferLen);
-				bufferOff = 0;
-			}
-
 			if (bufferLen + len > bufferBytes.length) {
 				// Allocate larger buffer.
 				int n = bufferBytes.length * 2;
@@ -163,10 +157,14 @@ public abstract class StreamCompressor implements Compressor {
 
 				byte[] newBytes = new byte[n];
 
-				System.arraycopy(bufferBytes, 0, newBytes, 0, bufferLen);
+				System.arraycopy(bufferBytes, bufferOff, newBytes, 0, bufferLen);
 				bufferBytes = newBytes;
+			} else if (bufferOff > 0) {
+				// Shift buffer to beginning.
+				System.arraycopy(bufferBytes, bufferOff, bufferBytes, 0, bufferLen);
 			}
 
+			bufferOff = 0;
 			System.arraycopy(b, off, bufferBytes, bufferLen, len);
 			bufferLen += len;
 		}
@@ -179,21 +177,18 @@ public abstract class StreamCompressor implements Compressor {
 				return;
 			}
 
-			if (bufferOff > 0) {
-				// Shift buffer to beginning.
-				System.arraycopy(bufferBytes, bufferOff, bufferBytes, 0, bufferLen);
-				bufferOff = 0;
-			}
-
 			if (bufferLen == bufferBytes.length) {
 				// Allocate larger buffer.
 				byte[] newBytes = new byte[bufferBytes.length * 2];
 
-				System.arraycopy(bufferBytes, 0, newBytes, 0, bufferLen);
+				System.arraycopy(bufferBytes, bufferOff, newBytes, 0, bufferLen);
 				bufferBytes = newBytes;
+			} else if (bufferOff > 0) {
+				// Shift buffer to beginning.
+				System.arraycopy(bufferBytes, bufferOff, bufferBytes, 0, bufferLen);
 			}
 
-			// bufferOff == 0 here
+			bufferOff = 0;
 			bufferBytes[bufferLen++] = (byte) b;
 		}
 	}
