@@ -21,14 +21,51 @@ import org.bouncycastle.openpgp.PGPPublicKeyRingCollection;
 import org.bouncycastle.bcpg.CompressionAlgorithmTags;
 import org.bouncycastle.bcpg.SymmetricKeyAlgorithmTags;
 
+/**
+ * A Hadoop compressor that runs an OpenPGP encryption.
+ *
+ * The word "compressor" is wrong. Think of it more like a transformer.
+ *
+ * Configuration entries used:
+ *
+ * * spotify.hadoop.openpgp.buffersize
+ * * spotify.hadoop.openpgp.compression
+ * * spotify.hadoop.openpgp.encryption
+ * * spotify.hadoop.openpgp.encrypt.keyId
+ * * spotify.hadoop.openpgp.encrypt.passPhrase
+ * * spotify.hadoop.openpgp.format
+ * * spotify.hadoop.openpgp.integrity.sign
+ * * spotify.hadoop.openpgp.pubring.path
+ *
+ * Note that the default settings has no encryption and no compression,
+ * thus just creating an OpenPGP literal data packet.
+**/
 public class OpenPgpCompressor extends StreamCompressor {
+	/// Compression algorithm name to value mapping.
 	public static final Map<String, Integer> COMPRESSION_ALGORITHMS = EnumUtils.getStaticFinalFieldMapping(CompressionAlgorithmTags.class);
+
+	/// Encryption algorithm name to value mapping.
 	public static final Map<String, Integer> ENCRYPTION_ALGORITHMS = EnumUtils.getStaticFinalFieldMapping(SymmetricKeyAlgorithmTags.class);
 
+	/**
+	 * Construct a new compressor object.
+	 *
+	 * @param conf a valid configuration.
+	**/
 	public OpenPgpCompressor(Configuration conf) throws IOException {
 		super(conf);
 	}
 
+	/**
+	 * Overridden function to create the output stream chain.
+	 *
+	 * This version reads its settings from the configuration object.
+	 * See the class help for more information.
+	 *
+	 * Note that the OpenPGP literal data file name is set to the empty
+	 * string (which is what GnuPG does for stdin,) and the modification
+	 * time is set to 0 (indicating something like "unknown".)
+	**/
 	protected OutputStream createOutputStream(OutputStream out) throws IOException {
 		return createOutputStream(
 			out,
@@ -42,7 +79,26 @@ public class OpenPgpCompressor extends StreamCompressor {
 			getBufferSize());
 	}
 
-	// Default protection, for unit tests.
+	/**
+	 * Create the ouput stream chain.
+	 *
+	 * This method is static to ensure it is purely functional.
+	 * Uses default protection, for unit tests.
+	 *
+	 * @param out the final stream to write to.
+	 * @param key the encryption key (PGPPublicKey) or pass phrase (String.)
+	 * @param encryption the encryption algorithm.
+	 * @param signed whether to sign the stream or not.
+	 * @param compression the compression algorithm.
+	 * @param format the format of the literal data.
+	 * @param name the file name of the input file, usually the empty string.
+	 * @param mtime the last-modification-time to record, usually PGPLiteralDataGenerator.NOW.
+	 * @param bufferSize the size of the Bouncy Castle buffers.
+	 *
+	 * @see org.bouncycastle.openpgp.PGPCompressedData
+	 * @see org.bouncycastle.openpgp.PGPEncryptedData
+	 * @see org.bouncycastle.openpgp.PGPLiteralData
+	**/
 	static OutputStream createOutputStream(OutputStream out, Object key, int encryption, boolean signed, int compression, int format, String name, Date mtime, int bufferSize) throws IOException {
 		try {
 			if (encryption != PGPEncryptedDataGenerator.NULL || signed) {
@@ -84,6 +140,11 @@ public class OpenPgpCompressor extends StreamCompressor {
 		}
 	}
 
+	/**
+	 * Return the public key ring file, as specified in configuration.
+	 *
+	 * Falls back to the GnuPG default.
+	**/
 	private File getPubringFile() {
 		String path = getConf().get("spotify.hadoop.openpgp.pubring.path");
 
@@ -93,6 +154,14 @@ public class OpenPgpCompressor extends StreamCompressor {
 		return GnuPgUtils.getDefaultPubringFile();
 	}
 
+	/**
+	 * Return the encryption key to be used.
+	 *
+	 * If a public key is found, that is returned, else a pass phrase
+	 * String is returned, or null.
+	 *
+	 * @return a PGPPublicKey, String, or null.
+	**/
 	private Object getKey() {
 		PGPPublicKey pubKey = getPublicKey();
 
@@ -101,18 +170,40 @@ public class OpenPgpCompressor extends StreamCompressor {
 		return getEncryptionPassPhrase();
 	}
 
+	/**
+	 * Return the encryption pass-phrase to use for symmetric-cipher only.
+	 *
+	 * This is like using "gpg -c".
+	 *
+	 * @return a string, or null.
+	**/
 	private String getEncryptionPassPhrase() {
 		return getConf().get("spotify.hadoop.openpgp.encrypt.passPhrase");
 	}
 
+	/**
+	 * Return the ID of the public key to use for signing and encrypting.
+	 *
+	 * @return a string, or null.
+	**/
 	private String getPublicKeyId() {
 		return getConf().get("spotify.hadoop.openpgp.encrypt.keyId");
 	}
 
+	/**
+	 * Return the public key to use for signing and encrypting.
+	 *
+	 * @return an object, or null.
+	**/
 	private PGPPublicKey getPublicKey() {
 		return getPublicKey(getPublicKeyId());
 	}
 
+	/**
+	 * Look up the given key ID in the default pubring file.
+	 *
+	 * @return an object, or null.
+	**/
 	private PGPPublicKey getPublicKey(String id) {
 		if (id == null) return null;
 
@@ -125,6 +216,15 @@ public class OpenPgpCompressor extends StreamCompressor {
 		}
 	}
 
+	/**
+	 * Return an identifier of the format of the literal data.
+	 *
+	 * @return a constant from PGPLiteralData, defaulting to "binary."
+	 *
+	 * @see PGPLiteralData#BINARY
+	 * @see PGPLiteralData#TEXT
+	 * @see PGPLiteralData#UTF8
+	**/
 	private int getFormat() {
 		String format = getConf().get("spotify.hadoop.openpgp.format", "binary");
 
@@ -135,12 +235,22 @@ public class OpenPgpCompressor extends StreamCompressor {
 		throw new RuntimeException("unknown format");
 	}
 
+	/**
+	 * Return an identifier of the compression algorithm to use.
+	 *
+	 * Defaults to "uncompressed."
+	**/
 	private int getCompressionAlgorithm() {
 		String algo = getConf().get("spotify.hadoop.openpgp.compression", "uncompressed");
 
 		return COMPRESSION_ALGORITHMS.get(algo.toUpperCase());
 	}
 
+	/**
+	 * Return an identifier of the encryption algorithm to use.
+	 *
+	 * This defaults to "cast5" if a key could be found, else "null."
+	**/
 	private int getEncryptionAlgorithm() {
 		String algo = getConf().get("spotify.hadoop.openpgp.encryption");
 
@@ -154,6 +264,11 @@ public class OpenPgpCompressor extends StreamCompressor {
 		return ENCRYPTION_ALGORITHMS.get(algo.toUpperCase());
 	}
 
+	/**
+	 * Return true if the stream should be signed.
+	 *
+	 * Defaults to true iff a key could be found.
+	**/
 	private boolean wantsIntegrity() {
 		String b = getConf().get("spotify.hadoop.openpgp.integrity.sign");
 
@@ -167,6 +282,11 @@ public class OpenPgpCompressor extends StreamCompressor {
 		return Boolean.valueOf(b);
 	}
 
+	/**
+	 * Return the default buffer size for Bouncy Castle buffers.
+	 *
+	 * Defaults to 16 kB.
+	**/
 	private int getBufferSize() {
 		return getConf().getInt("spotify.hadoop.openpgp.buffersize", 1 << 14);
 	}
