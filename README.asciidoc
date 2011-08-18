@@ -52,7 +52,7 @@ License
 Distributed under the MIT license:
 
 ____
-	Copyright (c) 2011 Spotify AB
+	Copyright (c) 2011 Spotify Ltd
 
 	Permission is hereby granted, free of charge, to any person obtaining a copy
 	of this software and associated documentation files (the "Software"), to deal
