@@ -31,6 +31,9 @@ In the Hadoop configuration file, add a property `io.compression.codecs` with
 
 	org.apache.hadoop.io.compress.DefaultCodec,org.apache.hadoop.io.compress.GzipCodec,com.spotify.hadoop.openpgp.OpenPgpCodec
 
+This casues files ending in `.gpg` to be automatically filtered through the
+codec.
+
 To make Flume use it by default for the collector sinks, add `flume.collector.dfs.compress.codec'':
 
 	com.spotify.hadoop.openpgp.OpenPgpCodec
